@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>売上データ分析</title>
+    <style>
+      body {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 32px 20px;
+        color: #1f2937;
+        background: #f8fafc;
+        font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+      }
+
+      main {
+        padding: 24px;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        background: #ffffff;
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #e2e8f0;
+      }
+
+      .source {
+        margin: 32px 0 12px;
+      }
+
+      .table-wrapper {
+        max-height: 520px;
+        overflow: auto;
+        border: 1px solid #cbd5e1;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      th,
+      td {
+        padding: 8px 10px;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        color: #ffffff;
+        background: #334155;
+      }
+
+      tbody tr:nth-child(even) {
+        background: #f8fafc;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>売上データ分析</h1>
+      <p>地域別のレコード件数です。表示データはクレンジング済みです。</p>
+      <img
+        src="reports/region_record_count.png"
+        alt="地域別レコード件数の棒グラフ"
+      >
+
+      <section>
+        <h2 class="source">クレンジング済みデータ</h2>
+        <p>
+          ソース:
+          <a href="data/processed/sales_clean.csv">data/processed/sales_clean.csv</a>
+        </p>
+        <p>
+          元データ:
+          <a href="data/raw/sales_dirty.csv">data/raw/sales_dirty.csv</a>
+        </p>
+        <div class="table-wrapper">
+          <table>
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const csvUrl = "data/processed/sales_clean.csv";
+      const table = document.querySelector("table");
+      const thead = table.querySelector("thead");
+      const tbody = table.querySelector("tbody");
+
+      function parseCsv(text) {
+        const rows = [];
+        let row = [];
+        let value = "";
+        let inQuotes = false;
+
+        for (let index = 0; index < text.length; index += 1) {
+          const character = text[index];
+          const nextCharacter = text[index + 1];
+
+          if (character === '"' && inQuotes && nextCharacter === '"') {
+            value += '"';
+            index += 1;
+          } else if (character === '"') {
+            inQuotes = !inQuotes;
+          } else if (character === "," && !inQuotes) {
+            row.push(value);
+            value = "";
+          } else if ((character === "\n" || character === "\r") && !inQuotes) {
+            if (character === "\r" && nextCharacter === "\n") {
+              index += 1;
+            }
+            row.push(value);
+            if (row.some((item) => item !== "")) {
+              rows.push(row);
+            }
+            row = [];
+            value = "";
+          } else {
+            value += character;
+          }
+        }
+
+        if (value !== "" || row.length > 0) {
+          row.push(value);
+          rows.push(row);
+        }
+
+        return rows;
+      }
+
+      fetch(csvUrl)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`CSVを読み込めませんでした: ${response.status}`);
+          }
+          return response.text();
+        })
+        .then((text) => {
+          const rows = parseCsv(text);
+          const headers = rows.shift();
+
+          const headerRow = document.createElement("tr");
+          headers.forEach((header) => {
+            const th = document.createElement("th");
+            th.textContent = header;
+            headerRow.appendChild(th);
+          });
+          thead.appendChild(headerRow);
+
+          rows.forEach((row) => {
+            const tr = document.createElement("tr");
+            row.forEach((cell) => {
+              const td = document.createElement("td");
+              td.textContent = cell || "Missing";
+              tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+          });
+        })
+        .catch((error) => {
+          const paragraph = document.createElement("p");
+          paragraph.textContent = error.message;
+          document.querySelector(".table-wrapper").replaceWith(paragraph);
+        });
+    </script>
+  </body>
+</html>
